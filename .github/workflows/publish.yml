@@ -13,7 +13,26 @@ on:
           - major
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        task: [test, typecheck]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Run ${{ matrix.task }}
+        run: bun run ${{ matrix.task }}
+
   publish:
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -25,9 +44,6 @@ jobs:
           bun-version: latest
 
       - run: bun install
-
-      - name: Typecheck
-        run: bun run typecheck
 
       - name: Configure git
         run: |

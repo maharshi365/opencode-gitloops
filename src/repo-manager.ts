@@ -3,6 +3,7 @@ import * as fs from "fs/promises"
 import * as path from "path"
 import { getConfig } from "./config"
 import { evictIfNeeded } from "./eviction"
+import { extractGitError } from "./git-error"
 import { logger } from "./logger"
 
 export interface RepoInfo {
@@ -152,11 +153,13 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
       await $`git -C ${localPath} reset --hard origin/HEAD`.quiet()
       await logger.info(`Updated repo: ${parsed.slug}`)
     } catch (err: any) {
+      const { stderr, detail } = extractGitError(err)
       await logger.error(`Failed to fetch updates for ${parsed.slug}`, {
-        error: err?.message || String(err),
+        error: detail,
+        stderr,
       })
       throw new Error(
-        `Failed to fetch updates for ${parsed.slug}: ${err.message || err}`
+        `Failed to fetch updates for ${parsed.slug}: ${detail}`
       )
     }
   } else {
@@ -178,22 +181,28 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
     } catch (err: any) {
       // Clean up partial clone on failure
       await fs.rm(localPath, { recursive: true, force: true }).catch(() => {})
+
+      // Extract stderr from Bun ShellError for meaningful diagnostics
+      const { stderr, detail } = extractGitError(err)
+
       if (
-        String(err).includes("not found") ||
-        String(err).includes("Repository not found")
+        detail.includes("not found") ||
+        detail.includes("Repository not found")
       ) {
         await logger.error(`Repository not found: ${parsed.slug}`, {
           url: parsed.cloneUrl,
+          stderr,
         })
         throw new Error(
           `Repository "${parsed.slug}" not found on GitHub. Only public repos are supported in v1.`
         )
       }
       await logger.error(`Failed to clone ${parsed.slug}`, {
-        error: err?.message || String(err),
+        error: detail,
+        stderr,
       })
       throw new Error(
-        `Failed to clone ${parsed.slug}: ${err.message || err}`
+        `Failed to clone ${parsed.slug}: ${detail}`
       )
     }
 

@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import { ensureRepo, listCachedRepos } from "./repo-manager"
+import { extractGitError } from "./git-error"
 import { logger } from "./logger"
 
 export const gitloops_clone = tool({
@@ -36,12 +37,13 @@ export const gitloops_clone = tool({
         await $`git -C ${info.localPath} reset --hard origin/${args.branch}`.quiet()
         await logger.info(`Checked out branch "${args.branch}" for ${info.slug}`)
       } catch (err: any) {
+        const { stderr, detail } = extractGitError(err)
         await logger.error(
           `Failed to checkout branch "${args.branch}" for ${info.slug}`,
-          { error: err?.message || String(err) }
+          { error: detail, stderr }
         )
         throw new Error(
-          `Failed to checkout branch "${args.branch}" for ${info.slug}: ${err.message || err}`
+          `Failed to checkout branch "${args.branch}" for ${info.slug}: ${detail}`
         )
       }
     }
