@@ -12,7 +12,7 @@ export interface GitloopsConfig {
 }
 
 const SCHEMA_URL =
-  "https://raw.githubusercontent.com/maharshi-me/gitloops/main/schema/config.schema.json"
+  "https://raw.githubusercontent.com/maharshi365/opencode-gitloops/master/schema/config.schema.json"
 
 const CONFIG_PATH = path.join(
   os.homedir(),

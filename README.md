@@ -14,7 +14,7 @@ Gitloops auto-creates a config file on first load at:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/maharshi-me/gitloops/main/schema/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/maharshi365/opencode-gitloops/master/schema/config.schema.json",
   "max_repos": 10,
   "cache_loc": "~/.cache/gitloops/repos",
   "eviction_strategy": "lru"

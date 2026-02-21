@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/maharshi-me/gitloops/main/schema/config.schema.json",
+  "$id": "https://raw.githubusercontent.com/maharshi365/opencode-gitloops/master/schema/config.schema.json",
   "title": "Gitloops Configuration",
   "description": "Configuration for the opencode-gitloops plugin.",
   "type": "object",
