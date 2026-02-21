@@ -1,15 +1,22 @@
 name: Publish to npm
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -19,11 +26,18 @@ jobs:
 
       - run: bun install
 
-      - name: Set version from git tag
+      - name: Configure git
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "Publishing version $VERSION"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: version
+        run: |
+          npm version ${{ inputs.bump }} --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped to $VERSION"
 
       - run: bun run build
 
@@ -35,3 +49,10 @@ jobs:
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit, tag, and push
+        run: |
+          git add package.json
+          git commit -m "v${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin HEAD --tags
