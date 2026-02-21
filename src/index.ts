@@ -1,14 +1,16 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { gitloops_clone, gitloops_refresh, gitloops_list } from "./tools"
 import { ensureRepo } from "./repo-manager"
+import { ensureConfigFile, getConfig, getConfigPath } from "./config"
 import * as fs from "fs/promises"
 import * as path from "path"
 import * as os from "os"
 
-const AGENT_MD = `---
+function buildAgentMD(cacheLoc: string): string {
+  return `---
 description: Explore GitHub repositories locally. Clone any public repo and answer questions about its code, structure, and patterns.
 mode: all
-color: "#4078c0"
+color: "#ed5f00"
 temperature: 0.1
 tools:
   read: true
@@ -27,7 +29,7 @@ permission:
   bash: deny
 ---
 
-You are GitLoops, a read-only agent for exploring public GitHub repositories locally.
+You are Gitloops, a read-only agent for exploring public GitHub repositories locally.
 
 When a user asks about a repository:
 1. Parse the repo slug from their message (e.g. "facebook/react" or a full GitHub URL)
@@ -42,14 +44,41 @@ Important rules:
 - All file paths passed to read/grep/glob/list must be absolute paths under the repo's localPath.
 - When switching between repos in the same session, always call \`gitloops_clone\` again for the new repo.
 
-Repos are cached at: ~/.cache/gitloops/repos/<owner>/<repo>/
+Repos are cached at: ${cacheLoc}/<owner>/<repo>/
 `
+}
 
 export const GitLoopsPlugin: Plugin = async ({ client }) => {
   return {
-    // Write agent definition to global config on server connect (idempotent)
+    // Write agent definition and ensure config on server connect (idempotent)
     "server.connected": async () => {
+      // Ensure the plugin config file exists (auto-create with defaults)
       try {
+        const created = await ensureConfigFile()
+        if (created) {
+          await client.app.log({
+            body: {
+              service: "opencode-gitloops",
+              level: "info",
+              message: `Config created with defaults at ${getConfigPath()}`,
+            },
+          })
+        }
+      } catch (err: any) {
+        await client.app.log({
+          body: {
+            service: "opencode-gitloops",
+            level: "warn",
+            message: `Failed to create config: ${err.message || err}`,
+          },
+        })
+      }
+
+      // Write agent definition to global config
+      try {
+        const config = await getConfig()
+        const agentMD = buildAgentMD(config.cache_loc)
+
         const agentsDir = path.join(
           os.homedir(),
           ".config",
@@ -64,8 +93,8 @@ export const GitLoopsPlugin: Plugin = async ({ client }) => {
           .readFile(agentPath, "utf8")
           .catch(() => null)
 
-        if (existing !== AGENT_MD) {
-          await fs.writeFile(agentPath, AGENT_MD, "utf8")
+        if (existing !== agentMD) {
+          await fs.writeFile(agentPath, agentMD, "utf8")
           await client.app.log({
             body: {
               service: "opencode-gitloops",

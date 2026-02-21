@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/maharshi-me/gitloops/main/schema/config.schema.json",
+  "title": "Gitloops Configuration",
+  "description": "Configuration for the opencode-gitloops plugin.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path or URL to the JSON schema for this config file."
+    },
+    "max_repos": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 10,
+      "description": "Maximum number of cached repositories. When exceeded, repos are evicted based on the eviction_strategy."
+    },
+    "cache_loc": {
+      "type": "string",
+      "default": "~/.cache/gitloops/repos",
+      "description": "Directory where cloned repositories are stored. Repos are placed directly at <cache_loc>/<owner>/<repo>/. Supports ~ for the home directory."
+    },
+    "eviction_strategy": {
+      "type": "string",
+      "enum": ["lru", "fifo", "largest"],
+      "default": "lru",
+      "description": "Strategy used to evict repos when max_repos is exceeded. 'lru' removes least recently used, 'fifo' removes oldest cloned, 'largest' removes the largest repo by disk size."
+    }
+  },
+  "additionalProperties": false
+}

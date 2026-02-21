@@ -1,7 +1,8 @@
 import { $ } from "bun"
 import * as fs from "fs/promises"
 import * as path from "path"
-import * as os from "os"
+import { getConfig } from "./config"
+import { evictIfNeeded } from "./eviction"
 
 export interface RepoInfo {
   localPath: string
@@ -24,8 +25,6 @@ export interface ParsedRepo {
   cloneUrl: string
   slug: string
 }
-
-const CACHE_ROOT = path.join(os.homedir(), ".cache", "gitloops", "repos")
 
 /**
  * Parse a repo slug or URL into its components.
@@ -87,9 +86,10 @@ export function parseRepoSlug(input: string): ParsedRepo {
 /**
  * Get the local filesystem path where a repo is (or would be) cached.
  */
-export function getLocalPath(slug: string): string {
+export async function getLocalPath(slug: string): Promise<string> {
   const { owner, repo } = parseRepoSlug(slug)
-  return path.join(CACHE_ROOT, owner, repo)
+  const config = await getConfig()
+  return path.join(config.cache_loc, owner, repo)
 }
 
 /**
@@ -120,10 +120,12 @@ async function getLastCommit(repoPath: string): Promise<string> {
  * Clone a repo (or fetch latest if already cloned). Returns metadata about the repo.
  *
  * Respects GITLOOPS_FULL_CLONE env var — if truthy, clones without --depth=1.
+ * Enforces max_repos limit via the configured eviction strategy after cloning.
  */
 export async function ensureRepo(input: string): Promise<RepoInfo> {
   const parsed = parseRepoSlug(input)
-  const localPath = path.join(CACHE_ROOT, parsed.owner, parsed.repo)
+  const config = await getConfig()
+  const localPath = path.join(config.cache_loc, parsed.owner, parsed.repo)
   const fullClone = process.env.GITLOOPS_FULL_CLONE === "true"
   const depthArgs = fullClone ? [] : ["--depth=1"]
 
@@ -161,6 +163,9 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
         `Failed to clone ${parsed.slug}: ${err.message || err}`
       )
     }
+
+    // Evict old repos if we've exceeded the max
+    await evictIfNeeded(config, parsed.slug)
   }
 
   const lastCommit = await getLastCommit(localPath)
@@ -176,24 +181,26 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
 }
 
 /**
- * List all repos currently cached under ~/.cache/gitloops/repos/.
+ * List all repos currently cached under the configured cache location.
  */
 export async function listCachedRepos(): Promise<CachedRepo[]> {
+  const config = await getConfig()
+  const cacheLoc = config.cache_loc
   const repos: CachedRepo[] = []
 
-  if (!(await dirExists(CACHE_ROOT))) {
+  if (!(await dirExists(cacheLoc))) {
     return repos
   }
 
   let owners: string[]
   try {
-    owners = await fs.readdir(CACHE_ROOT)
+    owners = await fs.readdir(cacheLoc)
   } catch {
     return repos
   }
 
   for (const owner of owners) {
-    const ownerPath = path.join(CACHE_ROOT, owner)
+    const ownerPath = path.join(cacheLoc, owner)
     if (!(await dirExists(ownerPath))) continue
 
     let repoNames: string[]
