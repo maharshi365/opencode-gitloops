@@ -86,6 +86,74 @@ export function parseRepoSlug(input: string): ParsedRepo {
 }
 
 /**
+ * Resolve a repo's canonical owner/repo via the GitHub API.
+ *
+ * GitHub redirects renamed repos (301) — `fetch` follows this automatically,
+ * so the JSON response always contains the canonical `full_name`.
+ *
+ * Returns the updated ParsedRepo on success, or `null` if the API call fails
+ * for non-404 reasons (e.g. rate limiting, network errors) so the caller can
+ * fall back to the original parsed values.
+ *
+ * Throws immediately on 404 (repo genuinely doesn't exist).
+ */
+export async function resolveRepo(parsed: ParsedRepo): Promise<ParsedRepo | null> {
+  try {
+    const apiUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}`
+    const res = await fetch(apiUrl, {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "gitloops",
+      },
+      redirect: "follow",
+    })
+
+    if (res.status === 404) {
+      throw new Error(
+        `Repository "${parsed.slug}" not found on GitHub. Only public repos are supported in v1.`
+      )
+    }
+
+    if (!res.ok) {
+      // Non-fatal: rate limit, server error, etc. — fall back to direct clone.
+      await logger.debug(
+        `GitHub API returned ${res.status} for ${parsed.slug}, falling back to direct clone`
+      )
+      return null
+    }
+
+    const data = (await res.json()) as { full_name: string }
+    const [resolvedOwner, resolvedRepo] = data.full_name.split("/")
+
+    if (
+      resolvedOwner !== parsed.owner ||
+      resolvedRepo !== parsed.repo
+    ) {
+      await logger.info(
+        `Resolved repo redirect: ${parsed.slug} → ${data.full_name}`
+      )
+      return {
+        owner: resolvedOwner,
+        repo: resolvedRepo,
+        cloneUrl: `https://github.com/${resolvedOwner}/${resolvedRepo}.git`,
+        slug: `${resolvedOwner}/${resolvedRepo}`,
+      }
+    }
+
+    // No redirect — canonical name matches the input.
+    return parsed
+  } catch (err: any) {
+    // Re-throw "not found" errors so the caller surfaces them.
+    if (err.message?.includes("not found on GitHub")) throw err
+
+    await logger.debug(`GitHub API resolution failed for ${parsed.slug}`, {
+      error: err.message,
+    })
+    return null
+  }
+}
+
+/**
  * Get the local filesystem path where a repo is (or would be) cached.
  */
 export async function getLocalPath(slug: string): Promise<string> {
@@ -125,13 +193,19 @@ async function getLastCommit(repoPath: string): Promise<string> {
  * Enforces max_repos limit via the configured eviction strategy after cloning.
  */
 export async function ensureRepo(input: string): Promise<RepoInfo> {
-  const parsed = parseRepoSlug(input)
+  let parsed = parseRepoSlug(input)
 
   await logger.debug(`Parsed repo identifier: ${parsed.slug}`, {
     input,
     owner: parsed.owner,
     repo: parsed.repo,
   })
+
+  // Resolve canonical repo name via GitHub API (handles renames/redirects).
+  const resolved = await resolveRepo(parsed)
+  if (resolved) {
+    parsed = resolved
+  }
 
   const config = await getConfig()
   const localPath = path.join(config.cache_loc, parsed.owner, parsed.repo)

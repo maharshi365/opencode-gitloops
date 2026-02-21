@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { parseRepoSlug } from "../src/repo-manager"
+import { parseRepoSlug, resolveRepo } from "../src/repo-manager"
 
 describe("parseRepoSlug", () => {
   it("parses owner/repo shorthand", () => {
@@ -88,6 +88,23 @@ describe("parseRepoSlug", () => {
   it("throws on malformed SSH URL", () => {
     expect(() => parseRepoSlug("git@gitlab.com:owner/repo.git")).toThrow(
       "Invalid repo identifier"
+    )
+  })
+})
+
+describe("resolveRepo (integration)", () => {
+  it("resolves a redirected repo to its canonical name", async () => {
+    // sst/opencode was transferred to anomalyco/opencode — GitHub's API
+    // returns a 301 redirect that fetch follows automatically.
+    const parsed = parseRepoSlug("sst/opencode")
+    const result = await resolveRepo(parsed)
+
+    expect(result).not.toBeNull()
+    expect(result!.owner).toBe("anomalyco")
+    expect(result!.repo).toBe("opencode")
+    expect(result!.slug).toBe("anomalyco/opencode")
+    expect(result!.cloneUrl).toBe(
+      "https://github.com/anomalyco/opencode.git"
     )
   })
 })
