@@ -2,6 +2,7 @@ import type { Plugin } from "@opencode-ai/plugin"
 import { gitloops_clone, gitloops_refresh, gitloops_list } from "./tools"
 import { ensureRepo } from "./repo-manager"
 import { ensureConfigFile, getConfig, getConfigPath } from "./config"
+import { initLogger, logger } from "./logger"
 import * as fs from "fs/promises"
 import * as path from "path"
 import * as os from "os"
@@ -49,6 +50,10 @@ Repos are cached at: ${cacheLoc}/<owner>/<repo>/
 }
 
 export const GitLoopsPlugin: Plugin = async ({ client }) => {
+  // Initialize the logger so all modules can use it
+  initLogger(client)
+  await logger.info("Gitloops plugin initialized")
+
   return {
     // Write agent definition and ensure config on server connect (idempotent)
     "server.connected": async () => {
@@ -56,22 +61,10 @@ export const GitLoopsPlugin: Plugin = async ({ client }) => {
       try {
         const created = await ensureConfigFile()
         if (created) {
-          await client.app.log({
-            body: {
-              service: "opencode-gitloops",
-              level: "info",
-              message: `Config created with defaults at ${getConfigPath()}`,
-            },
-          })
+          await logger.info(`Config created with defaults at ${getConfigPath()}`)
         }
       } catch (err: any) {
-        await client.app.log({
-          body: {
-            service: "opencode-gitloops",
-            level: "warn",
-            message: `Failed to create config: ${err.message || err}`,
-          },
-        })
+        await logger.warn(`Failed to create config: ${err.message || err}`)
       }
 
       // Write agent definition to global config
@@ -95,22 +88,12 @@ export const GitLoopsPlugin: Plugin = async ({ client }) => {
 
         if (existing !== agentMD) {
           await fs.writeFile(agentPath, agentMD, "utf8")
-          await client.app.log({
-            body: {
-              service: "opencode-gitloops",
-              level: "info",
-              message: `Agent definition written to ${agentPath}`,
-            },
-          })
+          await logger.info(`Agent definition written to ${agentPath}`)
         }
       } catch (err: any) {
-        await client.app.log({
-          body: {
-            service: "opencode-gitloops",
-            level: "warn",
-            message: `Failed to write agent definition: ${err.message || err}`,
-          },
-        })
+        await logger.warn(
+          `Failed to write agent definition: ${err.message || err}`
+        )
       }
     },
 
@@ -129,13 +112,7 @@ export const GitLoopsPlugin: Plugin = async ({ client }) => {
         )
         if (slugMatch) {
           await ensureRepo(slugMatch[1])
-          await client.app.log({
-            body: {
-              service: "opencode-gitloops",
-              level: "info",
-              message: `Pre-warmed repo: ${slugMatch[1]}`,
-            },
-          })
+          await logger.info(`Pre-warmed repo: ${slugMatch[1]}`)
         }
       } catch {
         // Silent — agent will call gitloops_clone explicitly

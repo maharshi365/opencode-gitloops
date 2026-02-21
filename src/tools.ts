@@ -1,5 +1,6 @@
 import { tool } from "@opencode-ai/plugin"
 import { ensureRepo, listCachedRepos } from "./repo-manager"
+import { logger } from "./logger"
 
 export const gitloops_clone = tool({
   description:
@@ -18,21 +19,37 @@ export const gitloops_clone = tool({
       .describe("Branch to checkout after cloning (default: repo default branch)"),
   },
   async execute(args) {
+    await logger.info("Tool invoked: gitloops_clone", {
+      repo: args.repo,
+      branch: args.branch ?? null,
+    })
+
     const info = await ensureRepo(args.repo)
 
     // If a specific branch was requested, check it out
     if (args.branch) {
+      await logger.info(`Checking out branch "${args.branch}" for ${info.slug}`)
       const { $ } = await import("bun")
       try {
         await $`git -C ${info.localPath} fetch origin ${args.branch}`.quiet()
         await $`git -C ${info.localPath} checkout ${args.branch}`.quiet()
         await $`git -C ${info.localPath} reset --hard origin/${args.branch}`.quiet()
+        await logger.info(`Checked out branch "${args.branch}" for ${info.slug}`)
       } catch (err: any) {
+        await logger.error(
+          `Failed to checkout branch "${args.branch}" for ${info.slug}`,
+          { error: err?.message || String(err) }
+        )
         throw new Error(
           `Failed to checkout branch "${args.branch}" for ${info.slug}: ${err.message || err}`
         )
       }
     }
+
+    await logger.debug("gitloops_clone complete", {
+      slug: info.slug,
+      path: info.localPath,
+    })
 
     return [
       `Repository: ${info.slug}`,
@@ -55,7 +72,14 @@ export const gitloops_refresh = tool({
       .describe("Repo identifier — e.g. 'facebook/react'"),
   },
   async execute(args) {
+    await logger.info("Tool invoked: gitloops_refresh", { repo: args.repo })
+
     const info = await ensureRepo(args.repo)
+
+    await logger.debug("gitloops_refresh complete", {
+      slug: info.slug,
+      commit: info.lastCommit,
+    })
 
     return [
       `Refreshed: ${info.slug}`,
@@ -72,7 +96,11 @@ export const gitloops_list = tool({
     "Shows slug, local path, and last modified time for each cached repo.",
   args: {},
   async execute() {
+    await logger.info("Tool invoked: gitloops_list")
+
     const repos = await listCachedRepos()
+
+    await logger.debug("gitloops_list complete", { count: repos.length })
 
     if (repos.length === 0) {
       return "No repos cached. Use gitloops_clone to clone a repo first."

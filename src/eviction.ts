@@ -1,6 +1,7 @@
 import * as fs from "fs/promises"
 import * as path from "path"
 import type { GitloopsConfig, EvictionStrategy } from "./config"
+import { logger } from "./logger"
 
 interface RepoStat {
   slug: string
@@ -152,10 +153,20 @@ export async function evictIfNeeded(
   const allRepos = await gatherRepoStats(config.cache_loc)
 
   if (allRepos.length <= config.max_repos) {
+    await logger.debug("Eviction check passed", {
+      cached: allRepos.length,
+      max: config.max_repos,
+    })
     return []
   }
 
   const evictCount = allRepos.length - config.max_repos
+
+  await logger.info(
+    `Eviction triggered: ${allRepos.length} cached repos exceeds limit of ${config.max_repos}`,
+    { strategy: config.eviction_strategy, evictCount }
+  )
+
   const sorted = await sortByStrategy(allRepos, config.eviction_strategy)
 
   // Filter out the current repo from eviction candidates
@@ -166,9 +177,25 @@ export async function evictIfNeeded(
   const evicted: string[] = []
   for (let i = 0; i < evictCount && i < candidates.length; i++) {
     const repo = candidates[i]
-    await removeRepo(repo.repoPath, config.cache_loc)
-    evicted.push(repo.slug)
+    try {
+      await removeRepo(repo.repoPath, config.cache_loc)
+      evicted.push(repo.slug)
+      await logger.info(`Evicted repo: ${repo.slug}`, {
+        strategy: config.eviction_strategy,
+        path: repo.repoPath,
+      })
+    } catch (err: any) {
+      await logger.warn(`Failed to evict repo: ${repo.slug}`, {
+        path: repo.repoPath,
+        error: err?.message || String(err),
+      })
+    }
   }
+
+  await logger.info(`Eviction complete: removed ${evicted.length} repo(s)`, {
+    evicted,
+    remaining: allRepos.length - evicted.length,
+  })
 
   return evicted
 }

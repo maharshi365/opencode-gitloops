@@ -3,6 +3,7 @@ import * as fs from "fs/promises"
 import * as path from "path"
 import { getConfig } from "./config"
 import { evictIfNeeded } from "./eviction"
+import { logger } from "./logger"
 
 export interface RepoInfo {
   localPath: string
@@ -124,6 +125,13 @@ async function getLastCommit(repoPath: string): Promise<string> {
  */
 export async function ensureRepo(input: string): Promise<RepoInfo> {
   const parsed = parseRepoSlug(input)
+
+  await logger.debug(`Parsed repo identifier: ${parsed.slug}`, {
+    input,
+    owner: parsed.owner,
+    repo: parsed.repo,
+  })
+
   const config = await getConfig()
   const localPath = path.join(config.cache_loc, parsed.owner, parsed.repo)
   const fullClone = process.env.GITLOOPS_FULL_CLONE === "true"
@@ -131,6 +139,10 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
 
   if (await dirExists(path.join(localPath, ".git"))) {
     // Repo already cloned — fetch latest
+    await logger.info(`Fetching updates for ${parsed.slug}`, {
+      path: localPath,
+      fullClone,
+    })
     try {
       if (fullClone) {
         await $`git -C ${localPath} fetch origin`.quiet()
@@ -138,16 +150,31 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
         await $`git -C ${localPath} fetch --depth=1 origin`.quiet()
       }
       await $`git -C ${localPath} reset --hard origin/HEAD`.quiet()
+      await logger.info(`Updated repo: ${parsed.slug}`)
     } catch (err: any) {
+      await logger.error(`Failed to fetch updates for ${parsed.slug}`, {
+        error: err?.message || String(err),
+      })
       throw new Error(
         `Failed to fetch updates for ${parsed.slug}: ${err.message || err}`
       )
     }
   } else {
     // Fresh clone
+    await logger.info(`Cloning ${parsed.slug}`, {
+      url: parsed.cloneUrl,
+      path: localPath,
+      fullClone,
+    })
+    const startTime = Date.now()
     await fs.mkdir(path.dirname(localPath), { recursive: true })
     try {
       await $`git clone ${depthArgs} ${parsed.cloneUrl} ${localPath}`.quiet()
+      const duration = Date.now() - startTime
+      await logger.info(`Cloned repo: ${parsed.slug} (${duration}ms)`, {
+        path: localPath,
+        durationMs: duration,
+      })
     } catch (err: any) {
       // Clean up partial clone on failure
       await fs.rm(localPath, { recursive: true, force: true }).catch(() => {})
@@ -155,10 +182,16 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
         String(err).includes("not found") ||
         String(err).includes("Repository not found")
       ) {
+        await logger.error(`Repository not found: ${parsed.slug}`, {
+          url: parsed.cloneUrl,
+        })
         throw new Error(
           `Repository "${parsed.slug}" not found on GitHub. Only public repos are supported in v1.`
         )
       }
+      await logger.error(`Failed to clone ${parsed.slug}`, {
+        error: err?.message || String(err),
+      })
       throw new Error(
         `Failed to clone ${parsed.slug}: ${err.message || err}`
       )

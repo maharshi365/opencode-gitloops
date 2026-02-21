@@ -1,6 +1,7 @@
 import * as fs from "fs/promises"
 import * as path from "path"
 import * as os from "os"
+import { logger } from "./logger"
 
 export type EvictionStrategy = "lru" | "fifo" | "largest"
 
@@ -53,8 +54,18 @@ export async function getConfig(): Promise<GitloopsConfig> {
   try {
     const contents = await fs.readFile(CONFIG_PATH, "utf8")
     raw = JSON.parse(contents)
-  } catch {
-    // File doesn't exist or is invalid — use defaults
+  } catch (err: any) {
+    // Distinguish between missing file and invalid JSON
+    if (err?.code === "ENOENT") {
+      await logger.debug("Config file not found, using defaults", {
+        path: CONFIG_PATH,
+      })
+    } else {
+      await logger.warn("Config file has invalid JSON, falling back to defaults", {
+        path: CONFIG_PATH,
+        error: err?.message || String(err),
+      })
+    }
   }
 
   const merged: GitloopsConfig = {
@@ -73,6 +84,13 @@ export async function getConfig(): Promise<GitloopsConfig> {
   }
 
   _cached = merged
+
+  await logger.info("Config loaded", {
+    max_repos: merged.max_repos,
+    cache_loc: merged.cache_loc,
+    eviction_strategy: merged.eviction_strategy,
+  })
+
   return merged
 }
 
