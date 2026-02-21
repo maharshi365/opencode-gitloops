@@ -214,7 +214,8 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
 
   if (await dirExists(path.join(localPath, ".git"))) {
     // Repo already cloned — fetch latest
-    await logger.info(`Fetching updates for ${parsed.slug}`, {
+    await logger.info(`Fetching updates for ${parsed.slug} from ${parsed.cloneUrl}`, {
+      url: parsed.cloneUrl,
       path: localPath,
       fullClone,
     })
@@ -238,7 +239,7 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
     }
   } else {
     // Fresh clone
-    await logger.info(`Cloning ${parsed.slug}`, {
+    await logger.info(`Cloning ${parsed.slug} from ${parsed.cloneUrl}`, {
       url: parsed.cloneUrl,
       path: localPath,
       fullClone,

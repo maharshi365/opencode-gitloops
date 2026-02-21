@@ -1,5 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import type { Config } from "@opencode-ai/sdk"
+import pkg from "../package.json"
 import { gitloops_clone, gitloops_refresh, gitloops_list } from "./tools"
 import { ensureRepo } from "./repo-manager"
 import { ensureConfigFile, getConfig } from "./config"
@@ -27,7 +28,9 @@ Repos are cached at: ${cacheLoc}/<owner>/<repo>/`
 export const GitLoopsPlugin: Plugin = async ({ client }) => {
   // Initialize the logger so all modules can use it
   initLogger(client)
-  await logger.info("Gitloops plugin initialized")
+  await logger.info(`Gitloops plugin v${pkg.version} initialized`, {
+    version: pkg.version,
+  })
 
   // Pre-load config so it's ready for the config hook
   let pluginConfig: Awaited<ReturnType<typeof getConfig>> | null = null
