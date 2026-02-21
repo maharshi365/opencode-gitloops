@@ -26,6 +26,9 @@ jobs:
 
       - run: bun install
 
+      - name: Typecheck
+        run: bun run typecheck
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
