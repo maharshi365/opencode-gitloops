@@ -9,6 +9,7 @@ export interface GitloopsConfig {
   max_repos: number
   cache_loc: string
   eviction_strategy: EvictionStrategy
+  register_agent: boolean
 }
 
 const SCHEMA_URL =
@@ -28,6 +29,7 @@ const DEFAULTS: GitloopsConfig = {
   max_repos: 10,
   cache_loc: DEFAULT_CACHE_LOC,
   eviction_strategy: "lru",
+  register_agent: false,
 }
 
 /**
@@ -81,6 +83,10 @@ export async function getConfig(): Promise<GitloopsConfig> {
       ["lru", "fifo", "largest"].includes(raw.eviction_strategy)
         ? raw.eviction_strategy
         : DEFAULTS.eviction_strategy,
+    register_agent:
+      typeof raw.register_agent === "boolean"
+        ? raw.register_agent
+        : DEFAULTS.register_agent,
   }
 
   _cached = merged
@@ -121,6 +127,7 @@ export async function ensureConfigFile(): Promise<boolean> {
     max_repos: DEFAULTS.max_repos,
     cache_loc: "~/.cache/gitloops/repos",
     eviction_strategy: DEFAULTS.eviction_strategy,
+    register_agent: DEFAULTS.register_agent,
   }
 
   await fs.writeFile(

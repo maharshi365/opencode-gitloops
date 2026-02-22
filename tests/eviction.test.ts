@@ -49,7 +49,7 @@ function makeConfig(
   maxRepos: number,
   strategy: GitloopsConfig["eviction_strategy"]
 ): GitloopsConfig {
-  return { cache_loc: cacheDir, max_repos: maxRepos, eviction_strategy: strategy }
+  return { cache_loc: cacheDir, max_repos: maxRepos, eviction_strategy: strategy, register_agent: false }
 }
 
 // ---------------------------------------------------------------------------

@@ -25,6 +25,11 @@
       "enum": ["lru", "fifo", "largest"],
       "default": "lru",
       "description": "Strategy used to evict repos when max_repos is exceeded. 'lru' removes least recently used, 'fifo' removes oldest cloned, 'largest' removes the largest repo by disk size."
+    },
+    "register_agent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to register the gitloops agent in OpenCode. When false (default), only the plugin tools (gitloops_clone, gitloops_refresh, gitloops_list) are available — useful if you want to invoke them from your own agents. Set to true to also add a dedicated 'gitloops' agent entry in the OpenCode agent picker."
     }
   },
   "additionalProperties": false
