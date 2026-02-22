@@ -107,4 +107,23 @@ describe("resolveRepo (integration)", () => {
       "https://github.com/anomalyco/opencode.git"
     )
   })
+
+  it("throws a helpful error for a non-existent repo", async () => {
+    const parsed = parseRepoSlug("this-owner-does-not-exist-xyz/no-such-repo-abc")
+    await expect(resolveRepo(parsed)).rejects.toThrow(
+      /not found/i
+    )
+  })
+
+  it("error message for missing repo mentions credentials", async () => {
+    const parsed = parseRepoSlug("this-owner-does-not-exist-xyz/no-such-repo-abc")
+    let message = ""
+    try {
+      await resolveRepo(parsed)
+    } catch (err: any) {
+      message = err.message
+    }
+    // Should guide the user toward checking credentials for private repos
+    expect(message).toMatch(/credentials|SSH/i)
+  })
 })

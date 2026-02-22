@@ -122,7 +122,7 @@ export async function resolveRepo(parsed: ParsedRepo): Promise<ParsedRepo | null
 
     if (res.status === 404) {
       throw new Error(
-        `Repository "${parsed.slug}" not found on GitHub. Only public repos are supported in v1.`
+        `Repository "${parsed.slug}" not found on GitHub. Check that the slug is correct. If it is a private repository, ensure your git credentials or SSH keys are configured.`
       )
     }
 
@@ -274,14 +274,30 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
 
       if (
         detail.includes("not found") ||
-        detail.includes("Repository not found")
+        detail.includes("Repository not found") ||
+        detail.includes("does not exist")
       ) {
         await logger.error(`Repository not found: ${parsed.slug}`, {
           url: parsed.cloneUrl,
           stderr,
         })
         throw new Error(
-          `Repository "${parsed.slug}" not found on GitHub. Only public repos are supported in v1.`
+          `Repository "${parsed.slug}" not found. Check the slug is correct. If it is a private repository, ensure your git credentials or SSH keys are configured.`
+        )
+      }
+
+      if (
+        detail.includes("Authentication failed") ||
+        detail.includes("could not read Username") ||
+        detail.includes("Permission denied") ||
+        detail.includes("access denied")
+      ) {
+        await logger.error(`Authentication failed for ${parsed.slug}`, {
+          url: parsed.cloneUrl,
+          stderr,
+        })
+        throw new Error(
+          `Authentication failed for "${parsed.slug}". Ensure your git credentials or SSH keys are configured for this repository.`
         )
       }
       await logger.error(`Failed to clone ${parsed.slug}`, {
