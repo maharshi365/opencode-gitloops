@@ -1,6 +1,6 @@
 {
   "name": "opencode-gitloops",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "GitHub repo explorer agent and plugin for OpenCode. Clone and explore any public GitHub repo locally.",
   "type": "module",
   "main": "dist/index.js",
