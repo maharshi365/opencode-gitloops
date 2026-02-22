@@ -35,12 +35,12 @@ export const GitLoopsPlugin: Plugin = async ({ client }) => {
         const cfg = pluginConfig ?? await getConfig()
         const agentDefs = (config.agent ?? {}) as Record<string, unknown>
 
-        if (cfg.register_agent) {
+        if (cfg.agent.enabled) {
           agentDefs.gitloops = buildGitloopsAgentDef(cfg)
           config.agent = agentDefs as Config["agent"]
           await logger.info("Gitloops agent registered via config hook")
         } else {
-          await logger.info("Gitloops agent registration skipped (register_agent is false)")
+          await logger.info("Gitloops agent registration skipped (agent.enabled is false)")
         }
       } catch (err: any) {
         await logger.error(

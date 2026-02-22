@@ -26,10 +26,49 @@
       "default": "lru",
       "description": "Strategy used to evict repos when max_repos is exceeded. 'lru' removes least recently used, 'fifo' removes oldest cloned, 'largest' removes the largest repo by disk size."
     },
-    "register_agent": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether to register the gitloops agent in OpenCode. When false (default), only the plugin tools (gitloops_clone, gitloops_refresh, gitloops_list) are available — useful if you want to invoke them from your own agents. Set to true to also add a dedicated 'gitloops' agent entry in the OpenCode agent picker."
+    "agent": {
+      "type": "object",
+      "description": "Configuration for the optional gitloops agent entry in OpenCode.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, registers a dedicated 'gitloops' agent in the OpenCode agent picker. When false (default), only the plugin tools are available."
+        },
+        "model": {
+          "$ref": "https://models.dev/model-schema.json#/$defs/Model",
+          "type": "string",
+          "description": "Model for the agent to use, e.g. 'anthropic/claude-sonnet-4-5'. Falls back to the session model if unset."
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0.1,
+          "description": "Sampling temperature for the agent (0–2)."
+        },
+        "color": {
+          "description": "Hex color code (e.g. '#ed5f00') or theme color name used for the agent in the UI.",
+          "default": "#ed5f00",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            {
+              "type": "string",
+              "enum": ["primary", "secondary", "accent", "success", "warning", "error", "info"]
+            }
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["subagent", "primary", "all"],
+          "default": "all",
+          "description": "Controls where the agent appears: 'primary' shows it in the main agent picker, 'subagent' makes it available via @mention only, 'all' enables both."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

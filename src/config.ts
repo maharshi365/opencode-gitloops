@@ -4,12 +4,26 @@ import * as os from "os"
 import { logger } from "./logger"
 
 export type EvictionStrategy = "lru" | "fifo" | "largest"
+export type AgentMode = "subagent" | "primary" | "all"
+
+export interface AgentConfig {
+  /** Whether to register the gitloops agent in OpenCode. Default: false. */
+  enabled: boolean
+  /** Model to use, e.g. "anthropic/claude-sonnet-4-5". Falls back to the session model if unset. */
+  model?: string
+  /** Sampling temperature (0–1). Default: 0.1. */
+  temperature?: number
+  /** Hex color code (e.g. "#ed5f00") or theme color name. */
+  color?: string
+  /** Whether the agent appears as a primary agent, subagent, or both. Default: "all". */
+  mode?: AgentMode
+}
 
 export interface GitloopsConfig {
   max_repos: number
   cache_loc: string
   eviction_strategy: EvictionStrategy
-  register_agent: boolean
+  agent: AgentConfig
 }
 
 const SCHEMA_URL =
@@ -29,7 +43,12 @@ const DEFAULTS: GitloopsConfig = {
   max_repos: 10,
   cache_loc: DEFAULT_CACHE_LOC,
   eviction_strategy: "lru",
-  register_agent: false,
+  agent: {
+    enabled: false,
+    temperature: 0.1,
+    color: "#ed5f00",
+    mode: "all",
+  },
 }
 
 /**
@@ -51,7 +70,7 @@ let _cached: GitloopsConfig | null = null
 export async function getConfig(): Promise<GitloopsConfig> {
   if (_cached) return _cached
 
-  let raw: Partial<GitloopsConfig> = {}
+  let raw: any = {}
 
   try {
     const contents = await fs.readFile(CONFIG_PATH, "utf8")
@@ -70,6 +89,8 @@ export async function getConfig(): Promise<GitloopsConfig> {
     }
   }
 
+  const rawAgent = raw.agent && typeof raw.agent === "object" ? raw.agent : {}
+
   const merged: GitloopsConfig = {
     max_repos:
       typeof raw.max_repos === "number" && raw.max_repos >= 1
@@ -83,10 +104,29 @@ export async function getConfig(): Promise<GitloopsConfig> {
       ["lru", "fifo", "largest"].includes(raw.eviction_strategy)
         ? raw.eviction_strategy
         : DEFAULTS.eviction_strategy,
-    register_agent:
-      typeof raw.register_agent === "boolean"
-        ? raw.register_agent
-        : DEFAULTS.register_agent,
+    agent: {
+      enabled:
+        typeof rawAgent.enabled === "boolean"
+          ? rawAgent.enabled
+          : DEFAULTS.agent.enabled,
+      model:
+        typeof rawAgent.model === "string" && rawAgent.model.length > 0
+          ? rawAgent.model
+          : undefined,
+      temperature:
+        typeof rawAgent.temperature === "number"
+          ? rawAgent.temperature
+          : DEFAULTS.agent.temperature,
+      color:
+        typeof rawAgent.color === "string" && rawAgent.color.length > 0
+          ? rawAgent.color
+          : DEFAULTS.agent.color,
+      mode:
+        rawAgent.mode &&
+        ["subagent", "primary", "all"].includes(rawAgent.mode)
+          ? (rawAgent.mode as AgentMode)
+          : DEFAULTS.agent.mode,
+    },
   }
 
   _cached = merged
@@ -95,6 +135,7 @@ export async function getConfig(): Promise<GitloopsConfig> {
     max_repos: merged.max_repos,
     cache_loc: merged.cache_loc,
     eviction_strategy: merged.eviction_strategy,
+    agent_enabled: merged.agent.enabled,
   })
 
   return merged
@@ -127,7 +168,13 @@ export async function ensureConfigFile(): Promise<boolean> {
     max_repos: DEFAULTS.max_repos,
     cache_loc: "~/.cache/gitloops/repos",
     eviction_strategy: DEFAULTS.eviction_strategy,
-    register_agent: DEFAULTS.register_agent,
+    agent: {
+      enabled: DEFAULTS.agent.enabled,
+      model: undefined,
+      temperature: DEFAULTS.agent.temperature,
+      color: DEFAULTS.agent.color,
+      mode: DEFAULTS.agent.mode,
+    },
   }
 
   await fs.writeFile(
