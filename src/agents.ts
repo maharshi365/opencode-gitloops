@@ -25,14 +25,16 @@ Repos are cached at: ${cacheLoc}/<owner>/<repo>/`
 
 /**
  * Build the full agent definition object for the gitloops agent.
+ * Merges user-supplied AgentConfig fields over the hardcoded tool/permission defaults.
  */
 export function buildGitloopsAgentDef(cfg: GitloopsConfig): Record<string, unknown> {
-  return {
+  const agentCfg = cfg.agent
+  const def: Record<string, unknown> = {
     description:
-      "Explore GitHub repositories locally. Clone any public repo and answer questions about its code, structure, and patterns.",
-    mode: "all" as const,
-    color: "#ed5f00",
-    temperature: 0.1,
+      "Explore GitHub repositories locally. Clone any public or private repo and answer questions about its code, structure, and patterns.",
+    mode: agentCfg.mode ?? "all",
+    color: agentCfg.color ?? "#ed5f00",
+    temperature: agentCfg.temperature ?? 0.1,
     tools: {
       read: true,
       grep: true,
@@ -52,4 +54,10 @@ export function buildGitloopsAgentDef(cfg: GitloopsConfig): Record<string, unkno
     },
     prompt: buildAgentPrompt(cfg.cache_loc),
   }
+
+  if (agentCfg.model) {
+    def.model = agentCfg.model
+  }
+
+  return def
 }
