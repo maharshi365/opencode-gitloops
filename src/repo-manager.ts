@@ -1,10 +1,22 @@
-import { $ } from "bun"
 import * as fs from "fs/promises"
 import * as path from "path"
+import { execFile } from "child_process"
+import { promisify } from "util"
 import { getConfig } from "./config"
 import { evictIfNeeded } from "./eviction"
 import { extractGitError } from "./git-error"
 import { logger } from "./logger"
+
+const execFileAsync = promisify(execFile)
+
+/**
+ * Run a git command, returning stdout as a string.
+ * Throws a plain Error with stderr attached as `stderr` for extractGitError.
+ */
+async function execGit(...args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync("git", args)
+  return stdout
+}
 
 export interface RepoInfo {
   localPath: string
@@ -179,7 +191,7 @@ async function dirExists(dirPath: string): Promise<boolean> {
  */
 async function getLastCommit(repoPath: string): Promise<string> {
   try {
-    const result = await $`git -C ${repoPath} rev-parse --short HEAD`.text()
+    const result = await execGit("-C", repoPath, "rev-parse", "--short", "HEAD")
     return result.trim()
   } catch {
     return "unknown"
@@ -221,11 +233,11 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
     })
     try {
       if (fullClone) {
-        await $`git -C ${localPath} fetch origin`.quiet()
+        await execGit("-C", localPath, "fetch", "origin")
       } else {
-        await $`git -C ${localPath} fetch --depth=1 origin`.quiet()
+        await execGit("-C", localPath, "fetch", "--depth=1", "origin")
       }
-      await $`git -C ${localPath} reset --hard origin/HEAD`.quiet()
+      await execGit("-C", localPath, "reset", "--hard", "origin/HEAD")
       await logger.info(`Updated repo: ${parsed.slug}`)
     } catch (err: any) {
       const { stderr, detail } = extractGitError(err)
@@ -247,7 +259,7 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
     const startTime = Date.now()
     await fs.mkdir(path.dirname(localPath), { recursive: true })
     try {
-      await $`git clone ${depthArgs} ${parsed.cloneUrl} ${localPath}`.quiet()
+      await execGit("clone", ...depthArgs, parsed.cloneUrl, localPath)
       const duration = Date.now() - startTime
       await logger.info(`Cloned repo: ${parsed.slug} (${duration}ms)`, {
         path: localPath,
@@ -257,7 +269,7 @@ export async function ensureRepo(input: string): Promise<RepoInfo> {
       // Clean up partial clone on failure
       await fs.rm(localPath, { recursive: true, force: true }).catch(() => {})
 
-      // Extract stderr from Bun ShellError for meaningful diagnostics
+      // Extract stderr from the child process error for meaningful diagnostics
       const { stderr, detail } = extractGitError(err)
 
       if (
