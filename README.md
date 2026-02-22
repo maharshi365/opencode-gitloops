@@ -36,7 +36,13 @@ Gitloops auto-creates a config file on first load at:
   "max_repos": 10,
   "cache_loc": "~/.cache/gitloops/repos",
   "eviction_strategy": "lru",
-  "register_agent": false
+  "agent": {
+    "enabled": false,
+    "model": "anthropic/claude-sonnet-4-5",
+    "temperature": 0.1,
+    "color": "#ed5f00",
+    "mode": "all"
+  }
 }
 ```
 
@@ -45,7 +51,7 @@ Gitloops auto-creates a config file on first load at:
 | `max_repos`         | `integer` | `10`                      | Maximum number of cached repos. When exceeded, repos are evicted automatically.        |
 | `cache_loc`         | `string`  | `~/.cache/gitloops/repos` | Directory where cloned repos are stored (`<cache_loc>/<owner>/<repo>/`). Supports `~`. |
 | `eviction_strategy` | `string`  | `"lru"`                   | Strategy for removing repos when `max_repos` is exceeded.                              |
-| `register_agent`    | `boolean` | `false`                   | When `true`, adds a dedicated `gitloops` agent to the OpenCode agent picker. When `false` (default), only the tools are registered — use them from any agent or your own custom agent. |
+| `agent`             | `object`  | see below                 | Controls the optional dedicated gitloops agent.                                        |
 
 ### Eviction strategies
 
@@ -55,13 +61,19 @@ Gitloops auto-creates a config file on first load at:
 | `fifo`    | Remove the oldest cloned repo (oldest creation time)           |
 | `largest` | Remove the largest repo by disk size                           |
 
+### Agent configuration
+
+The `agent` object controls the optional dedicated `gitloops` agent entry in OpenCode. By default (`enabled: false`) only the plugin tools are registered — you can call them from any agent or the default assistant.
+
+| Field         | Type      | Default      | Description                                                                                                        |
+| ------------- | --------- | ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `enabled`     | `boolean` | `false`      | Set to `true` to add a `gitloops` entry to the OpenCode agent picker.                                             |
+| `model`       | `string`  | *(session)*  | Model to use, e.g. `"anthropic/claude-sonnet-4-5"`. Falls back to the session model if omitted.                   |
+| `temperature` | `number`  | `0.1`        | Sampling temperature (0–2).                                                                                        |
+| `color`       | `string`  | `"#ed5f00"`  | Hex color (e.g. `"#FF5733"`) or theme color name (`"primary"`, `"accent"`, etc.) shown in the UI.                 |
+| `mode`        | `string`  | `"all"`      | `"primary"` — main picker only. `"subagent"` — `@mention` only. `"all"` — both.                                   |
+
 The `$schema` field enables autocompletion and validation in editors that support JSON Schema.
-
-### Agent registration
-
-By default (`register_agent: false`) Gitloops only registers its tools. This is useful when you want to call `gitloops_clone`, `gitloops_refresh`, and `gitloops_list` from your own custom agent or the default assistant.
-
-Set `register_agent: true` to also add a dedicated read-only `gitloops` agent to the OpenCode agent picker.
 
 ### Private repositories
 

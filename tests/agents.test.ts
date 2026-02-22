@@ -6,7 +6,12 @@ const baseConfig: GitloopsConfig = {
   max_repos: 10,
   cache_loc: "/home/user/.cache/gitloops/repos",
   eviction_strategy: "lru",
-  register_agent: true,
+  agent: {
+    enabled: true,
+    temperature: 0.1,
+    color: "#ed5f00",
+    mode: "all",
+  },
 }
 
 describe("buildAgentPrompt", () => {
@@ -46,9 +51,48 @@ describe("buildGitloopsAgentDef", () => {
     expect(def.prompt as string).toContain("/my/special/cache")
   })
 
-  it("has the correct temperature", () => {
+  it("uses temperature from agent config", () => {
     const def = buildGitloopsAgentDef(baseConfig)
     expect(def.temperature).toBe(0.1)
+  })
+
+  it("uses custom temperature when provided", () => {
+    const cfg = { ...baseConfig, agent: { ...baseConfig.agent, temperature: 0.5 } }
+    const def = buildGitloopsAgentDef(cfg)
+    expect(def.temperature).toBe(0.5)
+  })
+
+  it("uses color from agent config", () => {
+    const def = buildGitloopsAgentDef(baseConfig)
+    expect(def.color).toBe("#ed5f00")
+  })
+
+  it("uses custom color when provided", () => {
+    const cfg = { ...baseConfig, agent: { ...baseConfig.agent, color: "#ff0000" } }
+    const def = buildGitloopsAgentDef(cfg)
+    expect(def.color).toBe("#ff0000")
+  })
+
+  it("uses mode from agent config", () => {
+    const def = buildGitloopsAgentDef(baseConfig)
+    expect(def.mode).toBe("all")
+  })
+
+  it("uses custom mode when provided", () => {
+    const cfg = { ...baseConfig, agent: { ...baseConfig.agent, mode: "subagent" as const } }
+    const def = buildGitloopsAgentDef(cfg)
+    expect(def.mode).toBe("subagent")
+  })
+
+  it("does not set model when not provided", () => {
+    const def = buildGitloopsAgentDef(baseConfig)
+    expect(def.model).toBeUndefined()
+  })
+
+  it("sets model when provided in agent config", () => {
+    const cfg = { ...baseConfig, agent: { ...baseConfig.agent, model: "anthropic/claude-sonnet-4-5" } }
+    const def = buildGitloopsAgentDef(cfg)
+    expect(def.model).toBe("anthropic/claude-sonnet-4-5")
   })
 
   it("enables read/grep/glob/list tools", () => {
