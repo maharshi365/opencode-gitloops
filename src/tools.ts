@@ -6,6 +6,8 @@ import { logger } from "./logger"
 export const gitloops_clone = tool({
   description:
     "Clone or ensure a GitHub repo is available locally for exploration. " +
+    "ALWAYS prefer this tool over manually running `git clone` via bash — " +
+    "it handles caching, deduplication, and returns a ready-to-use local path. " +
     "Returns the local filesystem path to use with read/grep/glob/list tools. " +
     "Accepts 'owner/repo' shorthand or a full GitHub URL.",
   args: {
