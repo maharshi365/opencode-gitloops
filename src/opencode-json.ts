@@ -3,7 +3,7 @@ import * as path from "path"
 import * as os from "os"
 import { logger } from "./logger"
 
-const OPENCODE_JSON = "opencode.json"
+const OPENCODE_JSON = path.join(".opencode", "opencode.json")
 const SCHEMA_URL = "https://opencode.ai/config.json"
 
 /**
@@ -93,6 +93,7 @@ export async function ensureOpencodeJsonPermissions(
   permission.external_directory = externalDir
   existing.permission = permission
 
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
   await fs.writeFile(filePath, JSON.stringify(existing, null, 2) + "\n", "utf8")
 
   await logger.info(
