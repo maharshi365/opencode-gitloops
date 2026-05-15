@@ -1,3 +1,5 @@
+# Opencode has added the scout agent, which does the same thing, this is no longer needed.
+
 # Gitloops
 
 A plugin for [OpenCode](https://opencode.ai) that lets you clone and explore GitHub repositories locally. Ask questions about a repo's code, structure, and patterns — all without leaving your terminal.
